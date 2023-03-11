@@ -79,47 +79,9 @@ public class SyncXClient
         return remoteFiles;
     }
 
-
-    /*public List<SyncXFile> getRemoteFiles(String remoteDirPath) throws IOException
+    public List<SyncXFile> getLocalFiles(String localDirPath)
     {
-        final List<SyncXFile> remoteFiles = new ArrayList<>();
-
-        if (client instanceof FTPSClient)
-        {
-            ((FTPSClient) client).execPROT("P");
-        }
-
-        final FTPFile[] rootFiles = client.listFiles(remoteDirPath);
-
-        if (rootFiles == null || rootFiles.length == 0)
-        {
-            //TODO : warn error
-            System.out.println("No files found in " + remoteDirPath);
-            return remoteFiles;
-        }
-
-        for (FTPFile file : rootFiles)
-        {
-            if (file.isFile())
-            {
-                if (!remoteFiles.containsKey(remoteDirPath))
-                {
-                    remoteFiles.put(remoteDirPath, new ArrayList<>());
-                }
-                remoteFiles.get(remoteDirPath).add(file);
-            }
-            else if (file.isDirectory())
-            {
-                remoteFiles.putAll(getRemoteFiles(remoteDirPath + "/" + file.getName()));
-            }
-        }
-
-        return remoteFiles;
-    }*/
-
-    public HashMap<String, List<File>> getLocalFiles(String localDirPath)
-    {
-        final HashMap<String, List<File>> localFiles = new HashMap<>();
+        final List<SyncXFile> localFiles = new ArrayList<>();
         final File[] rootFiles = new File(localDirPath).listFiles();
 
         if (rootFiles == null || rootFiles.length == 0)
@@ -133,20 +95,17 @@ public class SyncXClient
         {
             if (file.isFile())
             {
-                if (!localFiles.containsKey(localDirPath))
-                {
-                    localFiles.put(localDirPath, new ArrayList<>());
-                }
-                localFiles.get(localDirPath).add(file);
+                localFiles.add(new SyncXFile(localDirPath, file.getName(), file.length()));
             }
             else if (file.isDirectory())
             {
-                localFiles.putAll(getLocalFiles(localDirPath + "/" + file.getName()));
+                localFiles.addAll(getLocalFiles(localDirPath + "/" + file.getName()));
             }
         }
 
         return localFiles;
     }
+
 
     public HashMap<String, Long> getFilesToDownload(HashMap<String, List<FTPFile>> remoteFiles, HashMap<String, List<File>> localFiles)
     {

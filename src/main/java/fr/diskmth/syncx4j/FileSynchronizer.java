@@ -29,12 +29,12 @@ public class FileSynchronizer
 
         System.out.println("#####");
 
-        /*final HashMap<String, List<File>> localFiles = syncXClient.getLocalFiles(CLIENT_DIRECTORY);
-        localFiles.forEach((key, value) -> value.forEach((file) -> System.out.println(key + " -> " + file.getName())));
+        final List<SyncXFile> localFiles = syncXClient.getLocalFiles(CLIENT_DIRECTORY);
+        localFiles.forEach((file) -> System.out.println(file.getPath() + " -> " + file.getName() + " -> " + file.getSize()));
 
         System.out.println("#####");
 
-        final HashMap<String, Long> filesToDownload = syncXClient.getFilesToDownload(remoteFiles, localFiles);
+        /*final HashMap<String, Long> filesToDownload = syncXClient.getFilesToDownload(remoteFiles, localFiles);
         filesToDownload.forEach((key, value) -> System.out.println(key + " -> " + value));
 
         System.out.println("#####");
