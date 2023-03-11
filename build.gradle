@@ -1,0 +1,99 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+}
+
+group = project.property('groupId') + project.property('artifactId')
+version = project.property('version')
+archivesBaseName = project.property('fileName')
+
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = project.property('javaVersion')
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'commons-net:commons-net:3.9.0'
+}
+
+jar {
+    manifest {
+        attributes(
+                'Name'     :  project.property('fileName'),
+                'Version'   : project.property('version'),
+                'Java-version'   : project.property('javaVersion'),
+                'Authors'    : project.property('authors'),
+                'Credits'   : project.property('credits'),
+                'Description'   : project.property('description'),
+        )
+    }
+}
+
+task sourceJar(type: Jar) {
+    classifier "sources"
+    from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar) {
+    classifier "javadoc"
+    from javadoc
+}
+
+artifacts {
+    archives jar
+    archives sourceJar
+    archives javadocJar
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            artifact tasks.sourceJar
+            artifact tasks.javadocJar
+
+            pom {
+                name = project.property('name')
+                version = project.property('version')
+                description = project.property('description')
+                groupId = project.property('groupId')
+                artifactId = project.property('artifactId')
+
+                licenses {
+                    license {
+                        name = 'GNU General Public License v3.0'
+                        url = 'https:www.gnu.org/licenses/gpl-3.0.html'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'disk_mth'
+                        name = 'Disk_MTH'
+                        email = 'contact.diskmth@gmail.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/Disk-MTH/SyncX4j.git'
+                    developerConnection = 'scm:git:ssh://github.com/Disk-MTH/SyncX4j.git'
+                    url = 'https://github.com/Disk-MTH/SyncX4j'
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            url = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
+            credentials {
+                username = "$usr"
+                password = "$pwd"
+            }
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.mavenJava
+}
