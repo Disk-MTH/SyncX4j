@@ -106,8 +106,34 @@ public class SyncXClient
         return localFiles;
     }
 
+    public List<SyncXFile> getFilesToDownload(List<SyncXFile> remoteFiles, List<SyncXFile> localFiles)
+    {
+        final List<SyncXFile> filesToDownload = new ArrayList<>();
 
-    public HashMap<String, Long> getFilesToDownload(HashMap<String, List<FTPFile>> remoteFiles, HashMap<String, List<File>> localFiles)
+        for (SyncXFile remoteFile : remoteFiles)
+        {
+            boolean download = true;
+
+            for (SyncXFile localFile : localFiles)
+            {
+                if (localFile.getName().equals(remoteFile.getName()) && localFile.getSize() == remoteFile.getSize())
+                {
+                    download = false;
+                    break;
+                }
+            }
+
+            if (download)
+            {
+                filesToDownload.add(remoteFile);
+            }
+        }
+
+        return filesToDownload;
+    }
+
+
+    /*public HashMap<String, Long> getFilesToDownload(HashMap<String, List<FTPFile>> remoteFiles, HashMap<String, List<File>> localFiles)
     {
         HashMap<String, Long> filesToDownload = new HashMap<>();
 
@@ -152,7 +178,7 @@ public class SyncXClient
         }
 
         return filesToDownload;
-    }
+    }*/
 
     public HashMap<String, Long> getFilesToDelete(HashMap<String, List<FTPFile>> remoteFiles, HashMap<String, List<File>> localFiles)
     {
