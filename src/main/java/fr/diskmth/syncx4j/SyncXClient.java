@@ -8,8 +8,8 @@ import org.apache.commons.net.ftp.FTPSClient;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.function.BiPredicate;
 
 public class SyncXClient
 {
@@ -106,236 +106,39 @@ public class SyncXClient
         return localFiles;
     }
 
-    public List<SyncXFile> getFilesToDownload(List<SyncXFile> remoteFiles, List<SyncXFile> localFiles)
+    public List<SyncXFile> getFilesDiff(List<SyncXFile> files1, List<SyncXFile> files2, BiPredicate<SyncXFile, SyncXFile> comparator)
     {
-        final List<SyncXFile> filesToDownload = new ArrayList<>();
+        final List<SyncXFile> result = new ArrayList<>();
 
-        for (SyncXFile remoteFile : remoteFiles)
+        for (SyncXFile file1 : files1)
         {
-            boolean download = true;
-
-            for (SyncXFile localFile : localFiles)
+            boolean found = false;
+            for (SyncXFile file2 : files2)
             {
-                if (localFile.getName().equals(remoteFile.getName()) && localFile.getSize() == remoteFile.getSize())
+                if (comparator.test(file1, file2))
                 {
-                    download = false;
+                    found = true;
                     break;
                 }
             }
-
-            if (download)
+            if (!found)
             {
-                filesToDownload.add(remoteFile);
+                result.add(file1);
             }
         }
 
-        return filesToDownload;
+        return result;
     }
 
-
-    /*public HashMap<String, Long> getFilesToDownload(HashMap<String, List<FTPFile>> remoteFiles, HashMap<String, List<File>> localFiles)
+    public List<SyncXFile> getFilesToDownload(List<SyncXFile> remoteFiles, List<SyncXFile> localFiles)
     {
-        HashMap<String, Long> filesToDownload = new HashMap<>();
-
-        for (String remotePath : remoteFiles.keySet())
-        {
-            List<FTPFile> remoteFileList = remoteFiles.get(remotePath);
-            List<File> localFileList = localFiles.get(remotePath);
-
-            if (localFileList == null)
-            {
-                // No local files found for this remote directory, download all remote files
-                for (FTPFile remoteFile : remoteFileList)
-                {
-                    String remoteFilePath = remotePath + "/" + remoteFile.getName();
-                    filesToDownload.put(remoteFilePath, remoteFile.getSize());
-                }
-            }
-            else
-            {
-                // Check if each remote file needs to be downloaded
-                for (FTPFile remoteFile : remoteFileList)
-                {
-                    String remoteFilePath = remotePath + "/" + remoteFile.getName();
-                    boolean fileNeedsDownload = true;
-
-                    for (File localFile : localFileList)
-                    {
-                        if (localFile.getName().equals(remoteFile.getName()) && localFile.length() == remoteFile.getSize())
-                        {
-                            // The local file exists and has the same size, skip download
-                            fileNeedsDownload = false;
-                            break;
-                        }
-                    }
-
-                    if (fileNeedsDownload)
-                    {
-                        filesToDownload.put(remoteFilePath, remoteFile.getSize());
-                    }
-                }
-            }
-        }
-
-        return filesToDownload;
-    }*/
-
-    public HashMap<String, Long> getFilesToDelete(HashMap<String, List<FTPFile>> remoteFiles, HashMap<String, List<File>> localFiles)
-    {
-        final HashMap<String, Long> filesToDelete = new HashMap<>();
-
-        for (String localPath : localFiles.keySet())
-        {
-            List<File> localFileList = localFiles.get(localPath);
-            List<FTPFile> remoteFileList = remoteFiles.get(localPath);
-
-            if (remoteFileList == null)
-            {
-                // No remote files found for this local directory, delete all local files
-                for (File localFile : localFileList)
-                {
-                    filesToDelete.put(localFile.getAbsolutePath(), localFile.length());
-                }
-            }
-            else
-            {
-                // Check if each local file needs to be deleted
-                for (File localFile : localFileList)
-                {
-                    boolean fileNeedsDeletion = true;
-
-                    for (FTPFile remoteFile : remoteFileList)
-                    {
-                        if (remoteFile.getName().equals(localFile.getName()) && remoteFile.getSize() == localFile.length())
-                        {
-                            // The remote file exists and has the same size, skip deletion
-                            fileNeedsDeletion = false;
-                            break;
-                        }
-                    }
-
-                    if (fileNeedsDeletion)
-                    {
-                        filesToDelete.put(localFile.getAbsolutePath(), localFile.length());
-                    }
-                }
-            }
-        }
-
-        return filesToDelete;
+        return getFilesDiff(remoteFiles, localFiles,
+                (remoteFile, localFile) -> localFile.getName().equals(remoteFile.getName()) && localFile.getSize() == remoteFile.getSize());
     }
 
-
-    /*public void syncDirectory(String localDirPath, HashMap<String, List<FTPFile>> remoteFiles) throws IOException
+    public List<SyncXFile> getFilesToDelete(List<SyncXFile> remoteFiles, List<SyncXFile> localFiles)
     {
-        final HashMap<String, Long> filesToDownload = getFilesToDownload(remoteDirPath, localDirPath);
-        final HashMap<String, Long> filesToDelete = getFilesToDelete(remoteDirPath, localDirPath);
-
-        for (Map.Entry<String, Long> entry : filesToDownload.entrySet())
-        {
-            final String remoteFilePath = entry.getKey();
-            final Long fileSize = entry.getValue();
-
-            final File localFile = new File(localDirPath + "/" + (new File(remoteFilePath)).getName());
-
-            client.retrieveFile(remoteFilePath, new FileOutputStream(localFile));
-
-            if (localFile.length() != fileSize)
-            {
-                throw new IOException("Error downloading file " + remoteFilePath);
-            }
-
-            System.out.println("Downloaded: " + remoteFilePath);
-        }
-
-        for (Map.Entry<String, Long> entry : filesToDelete.entrySet())
-        {
-            final String localFilePath = entry.getKey();
-
-            if (!new File(localFilePath).delete())
-            {
-                throw new IOException("Error deleting file " + localFilePath);
-            }
-
-            System.out.println("Deleted: " + localFilePath);
-        }
-    }
-
-    /*private void syncDirectory(String remoteDirPath, String localDirPath) throws IOException
-    {
-        if (client instanceof FTPSClient)
-        {
-            ((FTPSClient) client).execPROT("P");
-        }
-        final FTPFile[] remoteFiles = client.listFiles(remoteDirPath);
-        final File localDir = new File(localDirPath);
-        localDir.mkdirs();
-        final File[] localFiles = localDir.listFiles();
-
-        List<String> remoteFileNames = new ArrayList<>();
-        for (FTPFile remoteFile : remoteFiles)
-        {
-            remoteFileNames.add(remoteFile.getName());
-
-            final String remoteFilePath = remoteDirPath + "/" + remoteFile.getName();
-            final File localFile = new File(localDirPath + "/" + remoteFile.getName());
-
-            if (remoteFile.isDirectory())
-            {
-                syncDirectory(remoteFilePath, localFile.getPath());
-            }
-            else
-            {
-                if (!localFile.exists() || localFile.length() != remoteFile.getSize())
-                {
-                    System.out.println("Downloaded: " + remoteFile.getName());
-                    final OutputStream outputStream = new FileOutputStream(localFile.getPath());
-                    if (client instanceof FTPSClient)
-                    {
-                        ((FTPSClient) client).execPROT("P");
-                    }
-                    client.retrieveFile(remoteFilePath, outputStream);
-                    outputStream.close();
-                }
-                else
-                {
-                    System.out.println("Skipped: " + remoteFile.getName());
-                }
-            }
-        }
-
-        for (File localFile : localFiles)
-        {
-            String localFileName = localFile.getName();
-
-            if (!remoteFileNames.contains(localFileName))
-            {
-                if (localFile.isDirectory())
-                {
-                    deleteDirectory(localFile);
-                }
-                else
-                {
-                    localFile.delete();
-                }
-            }
-        }
-    }*/
-
-    private void deleteDirectory(File directory)
-    {
-        File[] files = directory.listFiles();
-        for (File file : files)
-        {
-            if (file.isDirectory())
-            {
-                deleteDirectory(file);
-            }
-            else
-            {
-                file.delete();
-            }
-        }
-        directory.delete();
+        return getFilesDiff(localFiles, remoteFiles,
+                (localFile, remoteFile) -> remoteFile.getName().equals(localFile.getName()) && remoteFile.getSize() == localFile.getSize());
     }
 }
