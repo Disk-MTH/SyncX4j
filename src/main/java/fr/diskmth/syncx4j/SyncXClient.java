@@ -7,17 +7,19 @@ import org.apache.commons.net.ftp.FTPSClient;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiPredicate;
 
 public class SyncXClient
 {
-    private FTPClient client;
-    private final String hostname;
-    private final int port;
-    private final String username;
-    private final String password;
+    protected final FTPClient client;
+    protected final String hostname;
+    protected final int port;
+    protected final String username;
+    protected final String password;
 
     public SyncXClient(String hostname, int port, String username, String password, boolean useSSL)
     {
@@ -59,7 +61,6 @@ public class SyncXClient
 
         if (ftpFiles == null || ftpFiles.length == 0)
         {
-            //TODO : warn error
             System.out.println("No remoteFiles found in " + remoteDir);
             return remoteFiles;
         }
@@ -86,7 +87,6 @@ public class SyncXClient
 
         if (rootFiles == null || rootFiles.length == 0)
         {
-            //TODO : warn error
             System.out.println("No files found in " + localDirPath);
             return localFiles;
         }
@@ -106,39 +106,105 @@ public class SyncXClient
         return localFiles;
     }
 
-    public List<SyncXFile> getFilesDiff(List<SyncXFile> files1, List<SyncXFile> files2, BiPredicate<SyncXFile, SyncXFile> comparator)
+    public List<SyncXFile> getFilesToDownload(List<SyncXFile> remoteFiles, List<SyncXFile> localFiles)
     {
-        final List<SyncXFile> result = new ArrayList<>();
+        final List<SyncXFile> filesToDownload = new ArrayList<>(remoteFiles);
 
-        for (SyncXFile file1 : files1)
+        for (SyncXFile localFile : localFiles)
         {
-            boolean found = false;
-            for (SyncXFile file2 : files2)
+            for (SyncXFile remoteFile : remoteFiles)
             {
-                if (comparator.test(file1, file2))
+                if (localFile.getName().equals(remoteFile.getName()) && localFile.getSize() == remoteFile.getSize())
                 {
-                    found = true;
+                    filesToDownload.remove(remoteFile);
                     break;
                 }
             }
-            if (!found)
-            {
-                result.add(file1);
-            }
         }
 
-        return result;
-    }
-
-    public List<SyncXFile> getFilesToDownload(List<SyncXFile> remoteFiles, List<SyncXFile> localFiles)
-    {
-        return getFilesDiff(remoteFiles, localFiles,
-                (remoteFile, localFile) -> localFile.getName().equals(remoteFile.getName()) && localFile.getSize() == remoteFile.getSize());
+        return filesToDownload;
     }
 
     public List<SyncXFile> getFilesToDelete(List<SyncXFile> remoteFiles, List<SyncXFile> localFiles)
     {
-        return getFilesDiff(localFiles, remoteFiles,
-                (localFile, remoteFile) -> remoteFile.getName().equals(localFile.getName()) && remoteFile.getSize() == localFile.getSize());
+        final List<SyncXFile> filesToDelete = new ArrayList<>();
+
+        for (SyncXFile localFile : localFiles)
+        {
+            boolean fileExistsRemotely = false;
+
+            for (SyncXFile remoteFile : remoteFiles)
+            {
+                if (localFile.getName().equals(remoteFile.getName()) && localFile.getSize() == remoteFile.getSize())
+                {
+                    fileExistsRemotely = true;
+                    break;
+                }
+            }
+
+            if (!fileExistsRemotely)
+            {
+                filesToDelete.add(localFile);
+            }
+        }
+
+        return filesToDelete;
+    }
+
+    public void sync(String remoteDir, String localDir) throws IOException
+    {
+        final List<SyncXFile> remoteFiles = getRemoteFiles(remoteDir);
+        final List<SyncXFile> localFiles = getLocalFiles(localDir);
+
+        final List<SyncXFile> filesToDownload = getFilesToDownload(remoteFiles, localFiles);
+        final List<SyncXFile> filesToDelete = getFilesToDelete(remoteFiles, localFiles);
+
+        for (SyncXFile file : filesToDelete)
+        {
+            String localFilePath = localDir + "/" + file.getPath().replace(remoteDir, "") + "/" + file.getName();
+
+            System.out.println("Deleting local file: " + localFilePath);
+
+            File localFile = new File(localFilePath);
+
+            if (localFile.delete())
+            {
+                System.out.println("File deleted: " + localFilePath);
+            }
+            else
+            {
+                System.err.println("Failed to delete file: " + localFilePath);
+            }
+        }
+
+        for (SyncXFile file : filesToDelete)
+        {
+            String localFilePath = localDir + "/" + file.getPath().replace(remoteDir, "") + "/" + file.getName();
+            Path localPath = Paths.get(localFilePath);
+            try
+            {
+                Files.delete(localPath);
+                System.out.println("Deleted file: " + localFilePath);
+            }
+            catch (IOException e)
+            {
+                System.err.println("Failed to delete file: " + localFilePath);
+                e.printStackTrace();
+            }
+        }
+
+        /*for (SyncXFile file : filesToDownload)
+        {
+            String remoteFilePath = file.getPath() + "/" + file.getName();
+            String localFilePath = localDir + "/" + file.getPath().replace(remoteDir, "") + "/" + file.getName();
+
+            System.out.println("Downloading file: " + remoteFilePath + " to " + localFilePath);
+
+            new File(localDir + "/" + file.getPath().replace(remoteDir, "")).mkdirs();
+
+            client.retrieveFile(remoteFilePath, new FileOutputStream(localFilePath));
+        }*/
+
+
     }
 }
