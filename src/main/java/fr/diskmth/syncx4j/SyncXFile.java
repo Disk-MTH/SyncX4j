@@ -1,5 +1,6 @@
 package fr.diskmth.syncx4j;
 
+//TODO subdivide path in correct way
 public class SyncXFile
 {
     protected String path;

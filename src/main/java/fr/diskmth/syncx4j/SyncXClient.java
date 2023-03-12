@@ -6,6 +6,7 @@ import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPSClient;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -125,7 +126,9 @@ public class SyncXClient
         return filesToDownload;
     }
 
-    public List<SyncXFile> getFilesToDelete(List<SyncXFile> remoteFiles, List<SyncXFile> localFiles)
+
+    //TODO change for a better algorithm
+    public List<SyncXFile> getFilesToDelete(List<SyncXFile> remoteFiles, List<SyncXFile> localFiles, String remoteDir)
     {
         final List<SyncXFile> filesToDelete = new ArrayList<>();
 
@@ -133,9 +136,13 @@ public class SyncXClient
         {
             boolean fileExistsRemotely = false;
 
+            final String localFilePath = localFile.getPath() + "/" + localFile.getName();
+
             for (SyncXFile remoteFile : remoteFiles)
             {
-                if (localFile.getName().equals(remoteFile.getName()) && localFile.getSize() == remoteFile.getSize())
+                final String remoteFilePath = (remoteFile.getPath() + "/" + remoteFile.getName()).replace(remoteDir + "/", "");
+
+                if (localFilePath.contains(remoteFilePath) && localFile.getSize() == remoteFile.getSize())
                 {
                     fileExistsRemotely = true;
                     break;
@@ -151,35 +158,18 @@ public class SyncXClient
         return filesToDelete;
     }
 
+    //TODO add progress bar, clear empty directories, logger, multithreading
     public void sync(String remoteDir, String localDir) throws IOException
     {
         final List<SyncXFile> remoteFiles = getRemoteFiles(remoteDir);
         final List<SyncXFile> localFiles = getLocalFiles(localDir);
 
         final List<SyncXFile> filesToDownload = getFilesToDownload(remoteFiles, localFiles);
-        final List<SyncXFile> filesToDelete = getFilesToDelete(remoteFiles, localFiles);
+        final List<SyncXFile> filesToDelete = getFilesToDelete(remoteFiles, localFiles, remoteDir);
 
         for (SyncXFile file : filesToDelete)
         {
-            String localFilePath = localDir + "/" + file.getPath().replace(remoteDir, "") + "/" + file.getName();
-
-            System.out.println("Deleting local file: " + localFilePath);
-
-            File localFile = new File(localFilePath);
-
-            if (localFile.delete())
-            {
-                System.out.println("File deleted: " + localFilePath);
-            }
-            else
-            {
-                System.err.println("Failed to delete file: " + localFilePath);
-            }
-        }
-
-        for (SyncXFile file : filesToDelete)
-        {
-            String localFilePath = localDir + "/" + file.getPath().replace(remoteDir, "") + "/" + file.getName();
+            String localFilePath = file.getPath().replace(remoteDir, "") + "/" + file.getName();
             Path localPath = Paths.get(localFilePath);
             try
             {
@@ -193,7 +183,7 @@ public class SyncXClient
             }
         }
 
-        /*for (SyncXFile file : filesToDownload)
+        for (SyncXFile file : filesToDownload)
         {
             String remoteFilePath = file.getPath() + "/" + file.getName();
             String localFilePath = localDir + "/" + file.getPath().replace(remoteDir, "") + "/" + file.getName();
@@ -202,9 +192,12 @@ public class SyncXClient
 
             new File(localDir + "/" + file.getPath().replace(remoteDir, "")).mkdirs();
 
+            if (client instanceof FTPSClient)
+            {
+                ((FTPSClient) client).execPROT("P");
+            }
+
             client.retrieveFile(remoteFilePath, new FileOutputStream(localFilePath));
-        }*/
-
-
+        }
     }
 }
