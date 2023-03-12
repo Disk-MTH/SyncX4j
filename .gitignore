@@ -21,3 +21,4 @@ build
 # other
 src/test
 *.log
+test
